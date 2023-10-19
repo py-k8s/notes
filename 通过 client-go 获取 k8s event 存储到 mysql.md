@@ -6,13 +6,14 @@ k8s event 记录了集群的状态变更，包括创建 pod、运行 pod、删�
 ```
 CREATE DATABASE `ths`;
 
-//  使用复合唯一索引  (event, datetime) ，避免 event 重复入库
+//  使用复合唯一索引  (object, event, datetime) ，避免 event 重复入库
 CREATE TABLE k8s_events (
   id INT NOT NULL AUTO_INCREMENT,
+  object VARCHAR(100),
   event VARCHAR(300),
   reason VARCHAR(100),
   datetime DATETIME,
-  UNIQUE KEY idx_event_datetime (event, datetime),
+  UNIQUE KEY idx_event_datetime (object, event, datetime),
   PRIMARY KEY (id)
 );
 ```
@@ -42,13 +43,14 @@ import (
 )
 
 func main() {
-	err := initDB() // 调用输出化数据库的函数
+	err := initDB() // 调用初始化数据库的函数
 	if err != nil {
 		log.Fatal(err)
 	}
 	eventList := getEvent()
 	// println(eventsList.Items)
 	for _, event := range eventList.Items {
+		fmt.Printf("Object: %s\n", event.InvolvedObject.Namespace+"/"+event.InvolvedObject.Name)
 		fmt.Printf("Event: %s\n", event.Message)
 		fmt.Printf("Reason: %s\n", event.Reason)
 		fmt.Printf("First Timestamp: %s\n", event.FirstTimestamp)
@@ -111,12 +113,13 @@ func initDB() (err error) {
 }
 
 func insertRow(event v1.Event) {
-	// insert into ths.k8s_events (datetime, event, reason) values ('2023-10-13 11:11:43 +0800 CST', 'Created pod: xxx-1697166703-pd6bl', 'SuccessfulCreate')
-	sqlStr := "insert into ths.k8s_events (datetime, event, reason) values (?, ?, ?)"
+	// insert into ths.k8s_events (object, datetime, event, reason) values ('pod/xxx-xnrkc', '2023-10-13 11:11:43 +0800 CST', 'Created pod: xxx-1697166703-pd6bl', 'SuccessfulCreate')
+	sqlStr := "insert into ths.k8s_events (object, datetime, event, reason) values (?, ?, ?, ?)"
 	// 将 metav1.Time 转换为 MySQL datetime 格式
 	t := event.FirstTimestamp.Time
 	mysqlDatetime := t.Format("2006-01-02 15:04:05")
-	res, err := db.Exec(sqlStr, mysqlDatetime, event.Message, event.Reason)
+	object := event.InvolvedObject.Namespace + "/" + event.InvolvedObject.Name
+	res, err := db.Exec(sqlStr, object, mysqlDatetime, event.Message, event.Reason)
 	// 只打印 Duplicate entry 'xxx' for key 'idx_event_datetime' 错误，不退出程序
 	if err != nil {
 		fmt.Println(err)
@@ -130,13 +133,12 @@ func insertRow(event v1.Event) {
 
 	}
 }
-
 ```
 3. 实现效果
-![代码运行结果输出](img/20231013162603.png)
-![mysql 中的数据](img/20231013162644.png)
+![代码运行结果输出](img/20231019104054.png)
+![mysql 中的数据](image.png)
 
-4. 把代码放在 linux crontab 中，每 5 分钟运行一次
+4. 把代码放在 linux crontab 中，定时运行
 
 5. 后续可以考虑优化成 informer watch 的方式
 
