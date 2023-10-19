@@ -136,7 +136,7 @@ func insertRow(event v1.Event) {
 ```
 3. 实现效果
 ![代码运行结果输出](img/20231019104054.png)
-![mysql 中的数据](image.png)
+![mysql 中的数据](img/20231019104144.png)
 
 4. 把代码放在 linux crontab 中，定时运行
 
