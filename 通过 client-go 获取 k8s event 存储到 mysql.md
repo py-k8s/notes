@@ -13,7 +13,7 @@ CREATE TABLE k8s_events (
   event VARCHAR(300),
   reason VARCHAR(100),
   datetime DATETIME,
-  UNIQUE KEY idx_event_datetime (object, event, datetime),
+  UNIQUE KEY idx_object_event_datetime (object, event, datetime),
   PRIMARY KEY (id)
 );
 ```
